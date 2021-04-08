@@ -7,6 +7,8 @@ import { getCurrentPosition } from '../util/geolocation';
 import { makeCarIcon, makeMarkerIcon, Map } from '../util/map';
 import { Route } from '../util/models';
 import { sample, shuffle } from 'lodash';
+import { RouteExistsError } from '../errors/route-exists.error';
+import { useSnackbar } from 'notistack';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
@@ -28,6 +30,7 @@ export const Mapping: FunctionComponent = () => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [routeIdSelected, setRouteIdSelected] = useState<string>('');
   const mapRef = useRef<Map>();
+  const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
     fetch(`${API_URL}/routes`)
@@ -54,19 +57,28 @@ export const Mapping: FunctionComponent = () => {
       event.preventDefault();
       const route = routes.find((route) => route._id === routeIdSelected);
       const color = sample(shuffle(colors)) as string;
-
-      mapRef.current?.addRoute(routeIdSelected, {
-        currentMarkerOptions: {
-          position: route?.startPosition,
-          icon: makeCarIcon(color),
-        },
-        endMarkerOptions: {
-          position: route?.endPosition,
-          icon: makeMarkerIcon(color),
-        },
-      });
+      try {
+        mapRef.current?.addRoute(routeIdSelected, {
+          currentMarkerOptions: {
+            position: route?.startPosition,
+            icon: makeCarIcon(color),
+          },
+          endMarkerOptions: {
+            position: route?.endPosition,
+            icon: makeMarkerIcon(color),
+          },
+        });
+      } catch (error) {
+        if (error instanceof RouteExistsError) {
+          enqueueSnackbar(`${route?.title} ja adicionado, espere finalizar.`, {
+            variant: 'error',
+          });
+          return;
+        }
+        throw error;
+      }
     },
-    [routeIdSelected, routes]
+    [routeIdSelected, routes, enqueueSnackbar]
   );
 
   return (
