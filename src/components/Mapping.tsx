@@ -1,8 +1,13 @@
-import { Grid, Select, MenuItem, Button, makeStyles } from '@material-ui/core';
+import { Button, Grid, makeStyles, MenuItem, Select } from '@material-ui/core';
 import { Loader } from 'google-maps';
-import { FunctionComponent, useRef } from 'react';
-import { useCallback } from 'react';
-import { FormEvent, useEffect, useState } from 'react';
+import {
+  FormEvent,
+  FunctionComponent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { getCurrentPosition } from '../util/geolocation';
 import { makeCarIcon, makeMarkerIcon, Map } from '../util/map';
 import { Route } from '../util/models';
@@ -52,12 +57,12 @@ export const Mapping: FunctionComponent = () => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [routeIdSelected, setRouteIdSelected] = useState<string>('');
   const mapRef = useRef<Map>();
-  const socketIoRef = useRef<SocketIOClient.Socket>();
+  const socketIORef = useRef<SocketIOClient.Socket>();
   const { enqueueSnackbar } = useSnackbar();
 
   const finishRoute = useCallback(
     (route: Route) => {
-      enqueueSnackbar(`${route.title} finalizou`, {
+      enqueueSnackbar(`${route.title} finalizou!`, {
         variant: 'success',
       });
       mapRef.current?.removeRoute(route._id);
@@ -66,9 +71,9 @@ export const Mapping: FunctionComponent = () => {
   );
 
   useEffect(() => {
-    if (!socketIoRef.current?.connected) {
-      socketIoRef.current = io.connect(API_URL);
-      socketIoRef.current.on('connect', () => console.log('conectou'));
+    if (!socketIORef.current?.connected) {
+      socketIORef.current = io.connect(API_URL);
+      socketIORef.current.on('connect', () => console.log('conectou'));
     }
 
     const handler = (data: {
@@ -82,16 +87,15 @@ export const Mapping: FunctionComponent = () => {
         lng: data.position[1],
       });
       const route = routes.find((route) => route._id === data.routeId) as Route;
-
       if (data.finished) {
         finishRoute(route);
       }
     };
-    socketIoRef.current?.on('new-position', handler);
+    socketIORef.current?.on('new-position', handler);
     return () => {
-      socketIoRef.current?.off('new-position', handler);
+      socketIORef.current?.off('new-position', handler);
     };
-  }, [routeIdSelected, finishRoute, routes]);
+  }, [finishRoute, routes, routeIdSelected]);
 
   useEffect(() => {
     fetch(`${API_URL}/routes`)
@@ -129,12 +133,12 @@ export const Mapping: FunctionComponent = () => {
             icon: makeMarkerIcon(color),
           },
         });
-        socketIoRef.current?.emit('new-direction', {
+        socketIORef.current?.emit('new-direction', {
           routeId: routeIdSelected,
         });
       } catch (error) {
         if (error instanceof RouteExistsError) {
-          enqueueSnackbar(`${route?.title} ja adicionado, espere finalizar.`, {
+          enqueueSnackbar(`${route?.title} já adicionado, espere finalizar.`, {
             variant: 'error',
           });
           return;
@@ -149,12 +153,12 @@ export const Mapping: FunctionComponent = () => {
     <Grid className={classes.root} container>
       <Grid item xs={12} sm={3}>
         <Navbar />
-        <form className={classes.form} onSubmit={startRoute}>
+        <form onSubmit={startRoute} className={classes.form}>
           <Select
             fullWidth
             displayEmpty
             value={routeIdSelected}
-            onChange={(e) => setRouteIdSelected(e.target.value + '')}
+            onChange={(event) => setRouteIdSelected(event.target.value + '')}
           >
             <MenuItem value=''>
               <em>Selecione uma corrida</em>

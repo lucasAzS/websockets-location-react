@@ -26,10 +26,11 @@ export class Route {
     this.directionsRenderer.setMap(
       this.currentMarker.getMap() as google.maps.Map
     );
-    this.calculeteRoute();
+
+    this.calculateRoute();
   }
 
-  private calculeteRoute() {
+  private calculateRoute() {
     const currentPosition = this.currentMarker.getPosition() as google.maps.LatLng;
     const endPosition = this.endMarker.getPosition() as google.maps.LatLng;
 
@@ -44,10 +45,12 @@ export class Route {
           this.directionsRenderer.setDirections(result);
           return;
         }
+
         throw new Error(status);
       }
     );
   }
+
   delete() {
     this.currentMarker.setMap(null);
     this.endMarker.setMap(null);
@@ -82,17 +85,13 @@ export class Map {
     if (id in this.routes) {
       throw new RouteExistsError();
     }
+
     const { currentMarkerOptions, endMarkerOptions } = routeOptions;
     this.routes[id] = new Route({
-      currentMarkerOptions: {
-        ...currentMarkerOptions,
-        map: this.map,
-      },
-      endMarkerOptions: {
-        ...endMarkerOptions,
-        map: this.map,
-      },
+      currentMarkerOptions: { ...currentMarkerOptions, map: this.map },
+      endMarkerOptions: { ...endMarkerOptions, map: this.map },
     });
+
     this.fitBounds();
   }
 
