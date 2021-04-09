@@ -10,8 +10,9 @@ import { sample, shuffle } from 'lodash';
 import { RouteExistsError } from '../errors/route-exists.error';
 import { useSnackbar } from 'notistack';
 import { Navbar } from './Navbar';
+import io from 'socket.io-client';
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL as string;
 
 const googleMapsLoader = new Loader(process.env.REACT_APP_GOOGLE_API_KEY);
 
@@ -51,7 +52,46 @@ export const Mapping: FunctionComponent = () => {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [routeIdSelected, setRouteIdSelected] = useState<string>('');
   const mapRef = useRef<Map>();
+  const socketIoRef = useRef<SocketIOClient.Socket>();
   const { enqueueSnackbar } = useSnackbar();
+
+  const finishRoute = useCallback(
+    (route: Route) => {
+      enqueueSnackbar(`${route.title} finalizou`, {
+        variant: 'success',
+      });
+      mapRef.current?.removeRoute(route._id);
+    },
+    [enqueueSnackbar]
+  );
+
+  useEffect(() => {
+    if (!socketIoRef.current?.connected) {
+      socketIoRef.current = io.connect(API_URL);
+      socketIoRef.current.on('connect', () => console.log('conectou'));
+    }
+
+    const handler = (data: {
+      routeId: string;
+      position: [number, number];
+      finished: boolean;
+    }) => {
+      console.log(data);
+      mapRef.current?.moveCurrentMarker(data.routeId, {
+        lat: data.position[0],
+        lng: data.position[1],
+      });
+      const route = routes.find((route) => route._id === data.routeId) as Route;
+
+      if (data.finished) {
+        finishRoute(route);
+      }
+    };
+    socketIoRef.current?.on('new-position', handler);
+    return () => {
+      socketIoRef.current?.off('new-position', handler);
+    };
+  }, [routeIdSelected, finishRoute, routes]);
 
   useEffect(() => {
     fetch(`${API_URL}/routes`)
@@ -88,6 +128,9 @@ export const Mapping: FunctionComponent = () => {
             position: route?.endPosition,
             icon: makeMarkerIcon(color),
           },
+        });
+        socketIoRef.current?.emit('new-direction', {
+          routeId: routeIdSelected,
         });
       } catch (error) {
         if (error instanceof RouteExistsError) {
